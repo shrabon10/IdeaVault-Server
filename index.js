@@ -56,12 +56,15 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
   try {
-    const db = client.db("IdeaVault");
-    const ideaColl = await db.collection("Ideas");
-    const commentsColl = await db.collection("Comments");
-    const categoriesColl = await db.collection("Categories");
+    await client.connect();
 
-    // All get here
+    const db = client.db("IdeaVault");
+
+    const ideaColl = db.collection("Ideas");
+    const commentsColl = db.collection("Comments");
+    const categoriesColl = db.collection("Categories");
+
+    console.log("MongoDB Connected Successfully");
 
     app.get("/categories", async (req, res) => {
       const allCategories = await categoriesColl.find().toArray();
