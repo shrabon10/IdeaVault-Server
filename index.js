@@ -15,6 +15,8 @@ app.use(
 );
 app.use(express.json());
 
+
+
 const JWKS = createRemoteJWKSet(
   new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
 );
@@ -148,7 +150,7 @@ async function run() {
       res.json(result);
     });
 
-    // All delete here
+  
 
     app.delete("/comment/:id", async (req, res) => {
       const { id } = req.params;
