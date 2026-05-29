@@ -34,9 +34,6 @@ const client = new MongoClient(uri, {
   },
 });
 
-
-
-// JWT VERIFY
 const JWKS = createRemoteJWKSet(
   new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
 );
@@ -85,10 +82,6 @@ async function run() {
     const commentsColl = db.collection("Comments");
     const categoriesColl = db.collection("Categories");
 
-
-
-    // GET APIs
-
     app.get("/categories", async (req, res) => {
       const result = await categoriesColl.find().toArray();
       res.send(result);
@@ -105,6 +98,7 @@ async function run() {
 
       res.send(result);
     });
+
 
     app.get("/ideas", async (req, res) => {
       const result = await ideaColl.find().toArray();
@@ -152,11 +146,6 @@ async function run() {
 
       res.send(result);
     });
-
-
-
-    // POST APIs
-
     app.post("/idea", async (req, res) => {
       const ideaData = req.body;
 
@@ -213,17 +202,6 @@ async function run() {
 
 
 
-    // DELETE APIs
-
-    app.delete("/idea/:id", async (req, res) => {
-      const { id } = req.params;
-
-      const result = await ideaColl.deleteOne({
-        _id: new ObjectId(id),
-      });
-
-      res.send(result);
-    });
 
     app.delete("/comment/:id", async (req, res) => {
       const { id } = req.params;
