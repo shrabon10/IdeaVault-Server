@@ -200,8 +200,15 @@ async function run() {
       res.send(result);
     });
 
+        app.delete("/idea/:id", async (req, res) => {
+      const { id } = req.params;
 
+      const result = await ideaColl.deleteOne({
+        _id: new ObjectId(id),
+      });
 
+      res.send(result);
+    });
 
     app.delete("/comment/:id", async (req, res) => {
       const { id } = req.params;
