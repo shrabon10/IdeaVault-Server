@@ -17,7 +17,6 @@ app.use(
     origin: "*",
   }),
 );
-
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -199,7 +198,6 @@ async function run() {
 
       res.send(result);
     });
-
         app.delete("/idea/:id", async (req, res) => {
       const { id } = req.params;
 
