@@ -1,29 +1,30 @@
 const dotenv = require("dotenv");
 dotenv.config();
+
 const express = require("express");
-const app = express();
 const cors = require("cors");
-const port = process.env.PORT;
+
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
 const { jwtVerify, createRemoteJWKSet } = require("jose-cjs");
-const uri = process.env.MONGODB_URI;
+
+const app = express();
+
+const port = process.env.PORT || 5000;
 
 app.use(
   cors({
     origin: "*",
   }),
 );
+
 app.use(express.json());
 
-
-
-const JWKS = createRemoteJWKSet(
-  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
-);
-
 app.get("/", (req, res) => {
-  res.send("Welcome to IdeaVault server");
+  res.send("IdeaVault Server Running");
 });
+
+const uri = process.env.MONGODB_URI;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -32,25 +33,43 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+
+
+// JWT VERIFY
+const JWKS = createRemoteJWKSet(
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
+);
+
 const verifyToken = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
   try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({
+        message: "Unauthorized Access",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({
+        message: "No Token Found",
+      });
+    }
+
     const { payload } = await jwtVerify(token, JWKS);
 
+    req.user = payload;
+
     next();
-  } catch (err) {
-    console.error("Token validation failed:", err);
+  } catch (error) {
+    console.log(error);
+
+    return res.status(401).json({
+      message: "Invalid Token",
+    });
   }
 };
 
@@ -58,109 +77,143 @@ async function run() {
   try {
     await client.connect();
 
+    console.log("MongoDB Connected Successfully");
+
     const db = client.db("IdeaVault");
 
     const ideaColl = db.collection("Ideas");
     const commentsColl = db.collection("Comments");
     const categoriesColl = db.collection("Categories");
 
-    console.log("MongoDB Connected Successfully");
+
+
+    // GET APIs
 
     app.get("/categories", async (req, res) => {
-      const allCategories = await categoriesColl.find().toArray();
-      res.json(allCategories);
+      const result = await categoriesColl.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/popularCategories", async (req, res) => {
+      const result = await categoriesColl.find().limit(6).toArray();
+
+      res.send(result);
     });
 
     app.get("/trendingIdeas", async (req, res) => {
-      const allFeaturedIdeas = await ideaColl.find().limit(6).toArray();
-      res.json(allFeaturedIdeas);
+      const result = await ideaColl.find().limit(6).toArray();
+
+      res.send(result);
     });
+
     app.get("/ideas", async (req, res) => {
-      const allIdeas = await ideaColl.find().toArray();
-      res.json(allIdeas);
+      const result = await ideaColl.find().toArray();
+
+      res.send(result);
     });
+
     app.get("/idea/:id", verifyToken, async (req, res) => {
-      const id = req.params.id;
+      const { id } = req.params;
 
-      const query = {
+      const result = await ideaColl.findOne({
         _id: new ObjectId(id),
-      };
+      });
 
-      const result = await ideaColl.findOne(query);
-      res.json(result);
+      res.send(result);
     });
+
     app.get("/searchedIdeas", async (req, res) => {
       const searchData = req.query.search;
-      const searchedIdeas = await ideaColl
+
+      const result = await ideaColl
         .find({
           $or: [
-            { name: { $regex: searchData, $options: "i" } },
-            { category: { $regex: searchData, $options: "i" } },
+            {
+              name: {
+                $regex: searchData,
+                $options: "i",
+              },
+            },
+            {
+              category: {
+                $regex: searchData,
+                $options: "i",
+              },
+            },
           ],
         })
         .toArray();
-      res.json(searchedIdeas);
+
+      res.send(result);
     });
-    app.get("/popularCategories", async (req, res) => {
-      const allCategories = await categoriesColl.find().limit(6).toArray();
-      res.json(allCategories);
-    });
+
     app.get("/comments", async (req, res) => {
       const result = await commentsColl.find().toArray();
-      res.json(result);
+
+      res.send(result);
     });
 
-    // All Post here
+
+
+    // POST APIs
+
     app.post("/idea", async (req, res) => {
-      const ideaInf = req.body;
+      const ideaData = req.body;
 
-      const result = await ideaColl.insertOne(ideaInf);
+      const result = await ideaColl.insertOne(ideaData);
 
-      res.json(result);
+      res.send(result);
     });
 
     app.post("/comment", async (req, res) => {
-      const commentInf = req.body;
-      const result = await commentsColl.insertOne(commentInf);
-      res.json(result);
+      const commentData = req.body;
+
+      const result = await commentsColl.insertOne(commentData);
+
+      res.send(result);
     });
 
-    // All Patch here
-    app.patch("/comment/:id", async (req, res) => {
-      console.log(req.params);
-      const id = req.params.id;
-      const commentInf = req.body;
 
-      const result = await commentsColl.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: commentInf },
-      );
-      res.json(result);
-    });
+
+    // PATCH APIs
 
     app.patch("/idea/:id", async (req, res) => {
       const { id } = req.params;
-      const idea = req.body;
+
+      const updatedData = req.body;
 
       const result = await ideaColl.updateOne(
         {
           _id: new ObjectId(id),
         },
         {
-          $set: idea,
+          $set: updatedData,
         },
       );
-      res.json(result);
+
+      res.send(result);
     });
 
-  
-
-    app.delete("/comment/:id", async (req, res) => {
+    app.patch("/comment/:id", async (req, res) => {
       const { id } = req.params;
 
-      const result = await commentsColl.deleteOne({ _id: new ObjectId(id) });
-      res.json(result);
+      const updatedData = req.body;
+
+      const result = await commentsColl.updateOne(
+        {
+          _id: new ObjectId(id),
+        },
+        {
+          $set: updatedData,
+        },
+      );
+
+      res.send(result);
     });
+
+
+
+    // DELETE APIs
 
     app.delete("/idea/:id", async (req, res) => {
       const { id } = req.params;
@@ -169,19 +222,26 @@ async function run() {
         _id: new ObjectId(id),
       });
 
-      res.json(result);
+      res.send(result);
     });
 
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!",
-    );
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+    app.delete("/comment/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const result = await commentsColl.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
+
+  } catch (error) {
+    console.log(error);
   }
 }
-run().catch(console.dir);
+
+run();
 
 app.listen(port, () => {
-  console.log(`Port is running in http://localhost:${port}`);
+  console.log(`Server Running On Port ${port}`);
 });
